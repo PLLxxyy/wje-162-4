@@ -272,6 +272,11 @@ router.post('/registrations/:regId/complete', authMiddleware, adminMiddleware, (
     return;
   }
   
+  if (registration.status !== 'approved') {
+    res.status(400).json({ error: '该报名尚未审核通过，无法发放积分' });
+    return;
+  }
+  
   const tx = db.transaction(() => {
     db.prepare(`
       UPDATE activity_registrations 

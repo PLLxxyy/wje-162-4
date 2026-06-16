@@ -466,6 +466,12 @@ function ActivityManageTab() {
   };
 
   const handleComplete = async (regId: number) => {
+    const reg = registrations.find(r => r.id === regId);
+    if (!reg) return;
+    if (reg.status !== 'approved') {
+      showToast('error', '只有审核通过的报名才能发放积分');
+      return;
+    }
     if (!confirm('确定要完成此活动并发放积分吗？')) return;
     try {
       await api.completeRegistration(regId);
