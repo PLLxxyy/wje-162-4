@@ -102,4 +102,52 @@ export const api = {
     ),
 
   getAdminUserStats: () => request<{ totalUsers: number; activeUsers: number }>('/admin/stats/users'),
+
+  // Activities
+  getActivities: () => request<{ activities: any[] }>('/activities'),
+
+  getActivity: (id: number) => request<{ activity: any }>(`/activities/${id}`),
+
+  getMyActivities: () => request<{ registrations: any[] }>('/activities/my'),
+
+  getActivityRegistrations: (activityId: number) =>
+    request<{ registrations: any[] }>(`/activities/${activityId}/registrations`),
+
+  createActivity: (data: {
+    title: string;
+    description: string;
+    location: string;
+    start_time: string;
+    end_time: string;
+    points_reward: number;
+    max_participants: number;
+  }) =>
+    request<{ message: string; id: number }>('/activities', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateActivity: (id: number, data: any) =>
+    request<{ message: string }>(`/activities/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteActivity: (id: number) =>
+    request<{ message: string }>(`/activities/${id}`, { method: 'DELETE' }),
+
+  registerActivity: (id: number) =>
+    request<{ message: string }>(`/activities/${id}/register`, { method: 'POST' }),
+
+  cancelRegisterActivity: (id: number) =>
+    request<{ message: string }>(`/activities/${id}/cancel-register`, { method: 'POST' }),
+
+  reviewRegistration: (regId: number, status: 'approved' | 'rejected', review_note?: string) =>
+    request<{ message: string }>(`/activities/registrations/${regId}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ status, review_note }),
+    }),
+
+  completeRegistration: (regId: number) =>
+    request<{ message: string }>(`/activities/registrations/${regId}/complete`, { method: 'POST' }),
 };

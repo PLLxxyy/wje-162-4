@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
-import { User, CheckinRecord, PointLog, ExchangeRecord, Announcement, CATEGORY_MAP } from '../types';
+import { User, CheckinRecord, PointLog, ExchangeRecord, Announcement, CATEGORY_MAP, REGISTRATION_STATUS_MAP } from '../types';
 
 interface Props {
   user: User;
 }
 
-type Tab = 'records' | 'points' | 'exchange' | 'announcements';
+type Tab = 'records' | 'points' | 'exchange' | 'activities' | 'announcements';
 
 const TAG_CLASS: Record<string, string> = {
   recyclable: 'tag tag-recyclable',
@@ -16,6 +16,7 @@ const TAG_CLASS: Record<string, string> = {
   checkin: 'tag tag-checkin',
   bonus: 'tag tag-bonus',
   exchange: 'tag tag-exchange',
+  activity: 'tag tag-checkin',
 };
 
 export default function ProfilePage({ user }: Props) {
@@ -50,12 +51,14 @@ export default function ProfilePage({ user }: Props) {
         <button className={`tab-btn ${tab === 'records' ? 'active' : ''}`} onClick={() => setTab('records')}>打卡记录</button>
         <button className={`tab-btn ${tab === 'points' ? 'active' : ''}`} onClick={() => setTab('points')}>积分明细</button>
         <button className={`tab-btn ${tab === 'exchange' ? 'active' : ''}`} onClick={() => setTab('exchange')}>兑换记录</button>
+        <button className={`tab-btn ${tab === 'activities' ? 'active' : ''}`} onClick={() => setTab('activities')}>我的活动</button>
         <button className={`tab-btn ${tab === 'announcements' ? 'active' : ''}`} onClick={() => setTab('announcements')}>社区公告</button>
       </div>
 
       {tab === 'records' && <CheckinRecordsTab />}
       {tab === 'points' && <PointLogsTab />}
       {tab === 'exchange' && <ExchangeRecordsTab />}
+      {tab === 'activities' && <MyActivitiesTab />}
       {tab === 'announcements' && <AnnouncementsTab />}
     </div>
   );
@@ -308,3 +311,81 @@ function AnnouncementsTab() {
     </div>
   );
 }
+
+function MyActivitiesTab() {
+  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadActivities();
+  }, []);
+
+  const loadActivities = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getMyActivities();
+      setRegistrations(data.registrations);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+
+  const formatDateTime = (dt: string) => {
+    return dt.replace('T', ' ').substring(0, 16);
+  };
+
+  return (
+    <div className="card">
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>加载中...</div>
+      ) : registrations.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🎯</div>
+          <p>暂无活动记录</p>
+        </div>
+      ) : (
+        <div>
+          {registrations.map((reg) => {
+            const statusInfo = REGISTRATION_STATUS_MAP[reg.status];
+            return (
+              <div key={reg.id} className="activity-card">
+                <div className="activity-header">
+                  <h3 className="activity-title">{reg.title}</h3>
+                  <span
+                    className="activity-status"
+                    style={{ background: statusInfo.color + '20', color: statusInfo.color }}
+                  >
+                    {statusInfo.name}
+                  </span>
+                </div>
+                <div className="activity-info">
+                  <div className="info-row">
+                    <span className="info-icon">📍</span>
+                    <span>{reg.location}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-icon">🕐</span>
+                    <span>{formatDateTime(reg.start_time)}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-icon">🎁</span>
+                    <span>积分奖励：<strong style={{ color: '#e67e22' }}>{reg.points_reward} 分</strong></span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-icon">📅</span>
+                    <span>报名时间：{reg.registered_at}</span>
+                  </div>
+                </div>
+                {reg.review_note && (
+                  <div style={{ marginTop: 8, fontSize: 13, color: '#e74c3c' }}>
+                    备注：{reg.review_note}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+

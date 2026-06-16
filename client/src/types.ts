@@ -47,7 +47,7 @@ export interface PointLog {
   id: number;
   user_id: number;
   amount: number;
-  type: 'checkin' | 'bonus' | 'exchange';
+  type: 'checkin' | 'bonus' | 'exchange' | 'activity';
   description: string;
   created_at: string;
 }
@@ -70,6 +70,47 @@ export const CATEGORY_MAP: Record<string, { name: string; icon: string; color: s
 };
 
 export const LOCATION_OPTIONS = ['A区投放点', 'B区投放点', 'C区投放点', '社区中心投放点', '东门投放点', '西门投放点'];
+
+export interface Activity {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  start_time: string;
+  end_time: string;
+  points_reward: number;
+  max_participants: number;
+  status: 'pending' | 'ongoing' | 'completed' | 'cancelled';
+  created_by: number;
+  created_at: string;
+  registered_count?: number;
+}
+
+export interface ActivityRegistration {
+  id: number;
+  activity_id: number;
+  user_id: number;
+  status: 'registered' | 'approved' | 'rejected' | 'completed';
+  review_note?: string;
+  registered_at: string;
+  reviewed_at?: string;
+  activity?: Activity;
+  user_nickname?: string;
+}
+
+export const ACTIVITY_STATUS_MAP: Record<string, { name: string; color: string }> = {
+  pending: { name: '待开始', color: '#ff9800' },
+  ongoing: { name: '进行中', color: '#2d8a4e' },
+  completed: { name: '已结束', color: '#9e9e9e' },
+  cancelled: { name: '已取消', color: '#e74c3c' },
+};
+
+export const REGISTRATION_STATUS_MAP: Record<string, { name: string; color: string }> = {
+  registered: { name: '待审核', color: '#ff9800' },
+  approved: { name: '已通过', color: '#2d8a4e' },
+  rejected: { name: '已拒绝', color: '#e74c3c' },
+  completed: { name: '已完成', color: '#1976d2' },
+};
 
 export const PRODUCT_ICONS: Record<number, string> = {
   1: '🛍️',

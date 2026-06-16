@@ -79,12 +79,14 @@ export default function HomePage({ user, onNavigate }: Props) {
       </div>
 
       {/* 快捷入口 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>
         {[
           { icon: '📸', label: '打卡', page: 'checkin' as Page },
           { icon: '📅', label: '日历', page: 'calendar' as Page },
           { icon: '🏆', label: '排行榜', page: 'ranking' as Page },
+          { icon: '🎯', label: '活动', page: 'activity' as Page },
           { icon: '🛍️', label: '积分商城', page: 'shop' as Page },
+          { icon: '👤', label: '个人中心', page: 'profile' as Page },
         ].map((item) => (
           <div
             key={item.page}

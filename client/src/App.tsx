@@ -9,8 +9,9 @@ import RankingPage from './pages/RankingPage';
 import ShopPage from './pages/ShopPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
+import ActivityPage from './pages/ActivityPage';
 
-type Page = 'home' | 'checkin' | 'calendar' | 'ranking' | 'shop' | 'profile' | 'admin';
+type Page = 'home' | 'checkin' | 'calendar' | 'ranking' | 'shop' | 'activity' | 'profile' | 'admin';
 
 const RESIDENT_TABS: { key: Page; label: string }[] = [
   { key: 'home', label: '首页' },
@@ -18,12 +19,14 @@ const RESIDENT_TABS: { key: Page; label: string }[] = [
   { key: 'calendar', label: '日历' },
   { key: 'ranking', label: '排行榜' },
   { key: 'shop', label: '积分商城' },
+  { key: 'activity', label: '活动' },
   { key: 'profile', label: '个人中心' },
 ];
 
 const ADMIN_TABS: { key: Page; label: string }[] = [
   { key: 'home', label: '首页' },
   { key: 'admin', label: '管理后台' },
+  { key: 'activity', label: '活动' },
   { key: 'profile', label: '个人中心' },
 ];
 
@@ -97,6 +100,8 @@ export default function App() {
         return <RankingPage />;
       case 'shop':
         return <ShopPage user={user} onRefreshUser={refreshUser} />;
+      case 'activity':
+        return <ActivityPage />;
       case 'profile':
         return <ProfilePage user={user} />;
       case 'admin':

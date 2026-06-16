@@ -72,9 +72,40 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
+  CREATE TABLE IF NOT EXISTS activities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    location TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    points_reward INTEGER NOT NULL DEFAULT 0,
+    max_participants INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_by INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS activity_registrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    activity_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'registered',
+    review_note TEXT,
+    registered_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    reviewed_at TEXT,
+    FOREIGN KEY (activity_id) REFERENCES activities(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE(activity_id, user_id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_checkin_user_date ON checkin_records(user_id, checkin_date);
   CREATE INDEX IF NOT EXISTS idx_exchange_user ON exchange_records(user_id);
   CREATE INDEX IF NOT EXISTS idx_point_logs_user ON point_logs(user_id);
+  CREATE INDEX IF NOT EXISTS idx_activities_status ON activities(status);
+  CREATE INDEX IF NOT EXISTS idx_registrations_user ON activity_registrations(user_id);
+  CREATE INDEX IF NOT EXISTS idx_registrations_activity ON activity_registrations(activity_id);
 `);
 
 // ========== Seed 数据 ==========

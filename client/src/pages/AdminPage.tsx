@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
-import { CATEGORY_MAP } from '../types';
+import { CATEGORY_MAP, Activity, ActivityRegistration, ACTIVITY_STATUS_MAP } from '../types';
 
-type Tab = 'stats' | 'announcements';
+type Tab = 'stats' | 'announcements' | 'activities';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('stats');
@@ -11,10 +11,12 @@ export default function AdminPage() {
     <div>
       <div className="tab-bar">
         <button className={`tab-btn ${tab === 'stats' ? 'active' : ''}`} onClick={() => setTab('stats')}>数据统计</button>
+        <button className={`tab-btn ${tab === 'activities' ? 'active' : ''}`} onClick={() => setTab('activities')}>活动管理</button>
         <button className={`tab-btn ${tab === 'announcements' ? 'active' : ''}`} onClick={() => setTab('announcements')}>公告管理</button>
       </div>
 
       {tab === 'stats' && <StatsTab />}
+      {tab === 'activities' && <ActivityManageTab />}
       {tab === 'announcements' && <AnnouncementManageTab />}
     </div>
   );
@@ -348,3 +350,434 @@ function AnnouncementManageTab() {
     </div>
   );
 }
+
+function ActivityManageTab() {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [registrations, setRegistrations] = useState<ActivityRegistration[]>([]);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    location: '',
+    start_time: '',
+    end_time: '',
+    points_reward: 50,
+    max_participants: 0,
+  });
+
+  useEffect(() => {
+    loadActivities();
+  }, []);
+
+  const loadActivities = async () => {
+    try {
+      const data = await api.getActivities();
+      setActivities(data.activities as Activity[]);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+
+  const loadRegistrations = async (activityId: number) => {
+    try {
+      const data = await api.getActivityRegistrations(activityId);
+      setRegistrations(data.registrations as ActivityRegistration[]);
+    } catch { /* ignore */ }
+  };
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.title.trim() || !formData.description.trim() || !formData.location.trim() ||
+      !formData.start_time || !formData.end_time) {
+      showToast('error', '请填写完整的活动信息');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await api.createActivity(formData);
+      showToast('success', '活动发布成功');
+      setShowCreateModal(false);
+      setFormData({
+        title: '', description: '', location: '',
+        start_time: '', end_time: '', points_reward: 50, max_participants: 0,
+      });
+      loadActivities();
+    } catch (err: any) {
+      showToast('error', err.message || '发布失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleViewDetail = async (activity: Activity) => {
+    setSelectedActivity(activity);
+    setShowDetailModal(true);
+    await loadRegistrations(activity.id);
+  };
+
+  const handleUpdateStatus = async (activityId: number, status: string) => {
+    try {
+      await api.updateActivity(activityId, { status });
+      showToast('success', '状态更新成功');
+      loadActivities();
+      if (selectedActivity?.id === activityId) {
+        setSelectedActivity({ ...selectedActivity, status: status as any });
+      }
+    } catch (err: any) {
+      showToast('error', err.message || '更新失败');
+    }
+  };
+
+  const handleDelete = async (activityId: number) => {
+    if (!confirm('确定要删除此活动吗？相关报名记录也会被删除。')) return;
+    try {
+      await api.deleteActivity(activityId);
+      showToast('success', '活动已删除');
+      loadActivities();
+    } catch (err: any) {
+      showToast('error', err.message || '删除失败');
+    }
+  };
+
+  const handleReview = async (regId: number, status: 'approved' | 'rejected') => {
+    const reviewNote = status === 'rejected' ? prompt('请输入拒绝原因：') : '';
+    if (status === 'rejected' && reviewNote === null) return;
+
+    try {
+      await api.reviewRegistration(regId, status, reviewNote || undefined);
+      showToast('success', '审核成功');
+      if (selectedActivity) {
+        loadRegistrations(selectedActivity.id);
+      }
+    } catch (err: any) {
+      showToast('error', err.message || '审核失败');
+    }
+  };
+
+  const handleComplete = async (regId: number) => {
+    if (!confirm('确定要完成此活动并发放积分吗？')) return;
+    try {
+      await api.completeRegistration(regId);
+      showToast('success', '活动完成，积分已发放');
+      if (selectedActivity) {
+        loadRegistrations(selectedActivity.id);
+      }
+    } catch (err: any) {
+      showToast('error', err.message || '操作失败');
+    }
+  };
+
+  const formatDateTime = (dt: string) => {
+    return dt.replace('T', ' ').substring(0, 16);
+  };
+
+  return (
+    <div>
+      {toast && <div className={`toast toast-${toast.type}`}>{toast.message}</div>}
+
+      <div className="card">
+        <div className="card-title" style={{ justifyContent: 'space-between' }}>
+          <span>🎯 活动管理</span>
+          <button className="btn-green btn-small" onClick={() => setShowCreateModal(true)}>+ 发布活动</button>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>加载中...</div>
+        ) : activities.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">🎯</div>
+            <p>暂无活动</p>
+          </div>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>活动名称</th>
+                <th>地点</th>
+                <th>时间</th>
+                <th>积分</th>
+                <th>报名人数</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activities.map((act) => {
+                const statusInfo = ACTIVITY_STATUS_MAP[act.status];
+                return (
+                  <tr key={act.id}>
+                    <td style={{ fontWeight: 600 }}>{act.title}</td>
+                    <td>{act.location}</td>
+                    <td style={{ fontSize: 12, color: '#666' }}>
+                      {formatDateTime(act.start_time)}
+                    </td>
+                    <td style={{ color: '#e67e22', fontWeight: 600 }}>{act.points_reward}</td>
+                    <td>
+                      {act.registered_count || 0}
+                      {act.max_participants > 0 ? ` / ${act.max_participants}` : ''}
+                    </td>
+                    <td>
+                      <span
+                        className="tag"
+                        style={{ background: statusInfo.color + '20', color: statusInfo.color }}
+                      >
+                        {statusInfo.name}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          className="btn-secondary btn-small"
+                          onClick={() => handleViewDetail(act)}
+                        >
+                          详情
+                        </button>
+                        {act.status === 'pending' && (
+                          <button
+                            className="btn-green btn-small"
+                            onClick={() => handleUpdateStatus(act.id, 'ongoing')}
+                          >
+                            开始
+                          </button>
+                        )}
+                        {act.status === 'ongoing' && (
+                          <button
+                            className="btn-secondary btn-small"
+                            onClick={() => handleUpdateStatus(act.id, 'completed')}
+                          >
+                            结束
+                          </button>
+                        )}
+                        {act.status !== 'cancelled' && act.status !== 'completed' && (
+                          <button
+                            className="btn-danger btn-small"
+                            onClick={() => handleDelete(act.id)}
+                          >
+                            删除
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>发布环保活动</h3>
+            <form onSubmit={handleCreate}>
+              <div className="form-group">
+                <label>活动名称</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="请输入活动名称"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>活动地点</label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="请输入活动地点"
+                  required
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="form-group">
+                  <label>开始时间</label>
+                  <input
+                    type="datetime-local"
+                    value={formData.start_time}
+                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>结束时间</label>
+                  <input
+                    type="datetime-local"
+                    value={formData.end_time}
+                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="form-group">
+                  <label>积分奖励</label>
+                  <input
+                    type="number"
+                    value={formData.points_reward}
+                    onChange={(e) => setFormData({ ...formData, points_reward: parseInt(e.target.value) || 0 })}
+                    min="0"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>人数上限（0为不限）</label>
+                  <input
+                    type="number"
+                    value={formData.max_participants}
+                    onChange={(e) => setFormData({ ...formData, max_participants: parseInt(e.target.value) || 0 })}
+                    min="0"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>活动描述</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="请输入活动详细描述"
+                  rows={4}
+                  style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: 8, resize: 'vertical' }}
+                  required
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={() => setShowCreateModal(false)}>取消</button>
+                <button type="submit" className="btn-primary" style={{ width: 'auto', padding: '10px 24px' }} disabled={submitting}>
+                  {submitting ? '发布中...' : '发布'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showDetailModal && selectedActivity && (
+        <div className="modal-overlay" onClick={() => setShowDetailModal(false)}>
+          <div className="modal" style={{ width: '640px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ marginBottom: 0 }}>{selectedActivity.title}</h3>
+              <span
+                className="tag"
+                style={{
+                  background: ACTIVITY_STATUS_MAP[selectedActivity.status].color + '20',
+                  color: ACTIVITY_STATUS_MAP[selectedActivity.status].color,
+                }}
+              >
+                {ACTIVITY_STATUS_MAP[selectedActivity.status].name}
+              </span>
+            </div>
+
+            <div style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 14 }}>
+                <div>📍 地点：{selectedActivity.location}</div>
+                <div>🎁 积分：{selectedActivity.points_reward} 分</div>
+                <div>🕐 开始：{formatDateTime(selectedActivity.start_time)}</div>
+                <div>👥 报名：{selectedActivity.registered_count || 0}{selectedActivity.max_participants > 0 ? ` / ${selectedActivity.max_participants}` : ''} 人</div>
+                <div style={{ gridColumn: '1 / -1' }}>🕑 结束：{formatDateTime(selectedActivity.end_time)}</div>
+              </div>
+              <div style={{ marginTop: 12, fontSize: 14, color: '#555' }}>
+                📝 描述：{selectedActivity.description}
+              </div>
+            </div>
+
+            <h4 style={{ marginBottom: 12, fontSize: 15 }}>报名名单</h4>
+            {registrations.length === 0 ? (
+              <div className="empty-state" style={{ padding: '32px 24px' }}>
+                <div className="empty-icon" style={{ fontSize: 36 }}>👥</div>
+                <p>暂无报名</p>
+              </div>
+            ) : (
+              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {registrations.map((reg) => {
+                  const statusInfo = {
+                    registered: { name: '待审核', color: '#ff9800' },
+                    approved: { name: '已通过', color: '#2d8a4e' },
+                    rejected: { name: '已拒绝', color: '#e74c3c' },
+                    completed: { name: '已完成', color: '#1976d2' },
+                  }[reg.status];
+
+                  return (
+                    <div
+                      key={reg.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '12px 16px',
+                        background: '#fff',
+                        border: '1px solid #eee',
+                        borderRadius: 8,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600 }}>{reg.user_nickname}</div>
+                        <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                          报名时间：{reg.registered_at}
+                        </div>
+                        {reg.review_note && (
+                          <div style={{ fontSize: 12, color: '#e74c3c', marginTop: 2 }}>
+                            备注：{reg.review_note}
+                          </div>
+                        )}
+                      </div>
+                      <span
+                        className="tag"
+                        style={{ background: statusInfo.color + '20', color: statusInfo.color, marginRight: 12 }}
+                      >
+                        {statusInfo.name}
+                      </span>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {reg.status === 'registered' && (
+                          <>
+                            <button
+                              className="btn-green btn-small"
+                              onClick={() => handleReview(reg.id, 'approved')}
+                            >
+                              通过
+                            </button>
+                            <button
+                              className="btn-danger btn-small"
+                              onClick={() => handleReview(reg.id, 'rejected')}
+                            >
+                              拒绝
+                            </button>
+                          </>
+                        )}
+                        {reg.status === 'approved' && (
+                          <button
+                            className="btn-primary btn-small"
+                            onClick={() => handleComplete(reg.id)}
+                          >
+                            完成并发放积分
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setShowDetailModal(false)}>关闭</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

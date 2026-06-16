@@ -7,6 +7,7 @@ import shopRoutes from './routes/shop';
 import rankingRoutes from './routes/ranking';
 import announcementRoutes from './routes/announcement';
 import adminRoutes from './routes/admin';
+import activityRoutes from './routes/activity';
 
 // 确保数据库初始化
 db.exec('SELECT 1');
@@ -24,6 +25,7 @@ app.use('/api/shop', shopRoutes);
 app.use('/api/ranking', rankingRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/activities', activityRoutes);
 
 // 健康检查
 app.get('/api/health', (_req, res) => {
